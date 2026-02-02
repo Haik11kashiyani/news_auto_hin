@@ -1,0 +1,45 @@
+name: Hindi News Automation
+
+on:
+  schedule:
+    - cron: "0 */3 * * *" # Run every 3 hours
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r news_shorts/requirements.txt
+
+      - name: Install Playwright Browsers
+        run: |
+          playwright install chromium
+          playwright install-deps
+
+      - name: Run News Automation
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python news_shorts/main.py
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: news-shorts-videos
+          path: outputs/*.mp4
+          retention-days: 5
