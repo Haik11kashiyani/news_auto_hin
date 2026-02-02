@@ -3,7 +3,7 @@ import asyncio
 import json
 import logging
 import urllib.parse
-from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeAudioClip, AudioArrayClip
+from moviepy.editor import ImageSequenceClip, AudioFileClip, CompositeAudioClip
 import nest_asyncio
 from playwright.async_api import async_playwright
 
