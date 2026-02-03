@@ -51,7 +51,7 @@ class MediaProcessor:
             if response.status_code != 200:
                 print(f"⚠️ Image Gen Failed ({response.status_code}): {response.text}")
                 # Fallback to older model if 3.0 fails?
-                return None
+                return self._create_gradient_fallback(prompt, filename)
                 
             result = response.json()
             # Parse 'predictions' -> 'bytesBase64Encoded'
