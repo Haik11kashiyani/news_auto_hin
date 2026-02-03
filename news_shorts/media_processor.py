@@ -114,9 +114,31 @@ class MediaProcessor:
             box_x, box_y = (width - box_w)//2, (height - box_h)//2
             draw.rectangle([box_x, box_y, box_x+box_w, box_y+box_h], outline="white", width=5)
             
-            # We can't easily center text with load_default() font as it's tiny
-            # So we rely on the video_generator's HTML overlay for the actual reading.
-            # This just provides a "Newsy" texture.
+            # Add simple text overlay
+            try:
+                # Try to load a nice bold font from Windows
+                font_path = "C:/Windows/Fonts/impact.ttf"
+                if not os.path.exists(font_path):
+                    font_path = "C:/Windows/Fonts/arialbd.ttf" # Arial Bold
+                
+                font = ImageFont.truetype(font_path, 100)
+                
+                text_str = "BREAKING NEWS"
+                
+                # Get text bbox
+                left, top, right, bottom = draw.textbbox((0, 0), text_str, font=font)
+                text_w = right - left
+                text_h = bottom - top
+                
+                text_x = (width - text_w) // 2
+                text_y = (height - text_h) // 2
+                
+                # Draw Text
+                draw.text((text_x, text_y), text_str, font=font, fill="white")
+                
+            except Exception as font_e:
+                print(f"⚠️ Font loading failed: {font_e}")
+                # Fallback to no text or default
             
             path = os.path.join(self.assets_dir, filename)
             image.save(path)
