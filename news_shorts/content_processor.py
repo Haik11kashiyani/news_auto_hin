@@ -16,7 +16,42 @@ class ContentProcessor:
             raise ValueError("GEMINI_API_KEY not found in environment variables")
         
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
+        self.model = self._get_valid_model()
+
+    def _get_valid_model(self):
+        """
+        Tries to initialize a working model from a prioritized list.
+        """
+        candidates = [
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash-exp", # Experimental
+            "gemini-1.0-pro",
+            "gemini-pro"
+        ]
+        
+        for model_name in candidates:
+            try:
+                logging.info(f"🔄 Attempting to initialize model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                # Dry run to verify access?
+                # Note: creating the object doesn't hit API, but we'll trust the list.
+                # If we really want to verify, we'd need to try a dummy generation.
+                # Let's just return the first one that we "hope" works? 
+                # Actually, the 404 happens at generation time usually.
+                # So we should probably keep the list and try-except inside generate calls?
+                # Or just assign one here?
+                
+                # To be safe, let's keep it simple for now and just Use the object.
+                # But better strategy: The generating functions should catch the 404 and retry.
+                # HOWEVER, a simple "init" check might be:
+                return model
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to init {model_name}: {e}")
+        
+        logging.error("❌ All model candidates failed initialization.")
+        return genai.GenerativeModel("gemini-1.5-flash") # Fallback to default
+
 
     def curate_news(self, news_items):
         """
@@ -51,21 +86,36 @@ class ContentProcessor:
         }}
         """
 
-        try:
-            response = self.model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
-            result = json.loads(response.text)
-            idx = result.get("selected_index", 0)
-            reason = result.get("reason", "")
-            logging.info(f"✅ Selected Index {idx}: {reason}")
-            
-            if 0 <= idx < len(news_items):
-                return news_items[idx]
-            else:
-                return news_items[0] # Fallback
+        candidates = [
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash-exp",
+            "gemini-1.0-pro",
+            "gemini-pro"
+        ]
+
+        last_error = None
+        for model_name in candidates:
+            try:
+                logging.info(f"🔄 Trying curation with model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+                result = json.loads(response.text)
+                idx = result.get("selected_index", 0)
+                reason = result.get("reason", "")
+                logging.info(f"✅ Selected Index {idx}: {reason}")
                 
-        except Exception as e:
-            logging.error(f"❌ Curation Error: {e}")
-            return news_items[0] # Fallback to first item
+                if 0 <= idx < len(news_items):
+                    return news_items[idx]
+                else:
+                    return news_items[0]
+            except Exception as e:
+                logging.warning(f"⚠️ Model {model_name} failed: {e}")
+                last_error = e
+                continue
+        
+        logging.error(f"❌ Curation Error (All models failed): {last_error}")
+        return news_items[0] # Fallback
 
     def generate_script(self, news_item):
         """
@@ -100,21 +150,36 @@ class ContentProcessor:
         }}
         """
         
-        try:
-            response = self.model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
-            data = json.loads(response.text)
-            
-            # Add metadata back
-            data['original_title'] = news_item['title']
-            data['source'] = news_item['source']
-            data['image_url'] = news_item['image']
-            
-            logging.info("✅ Script generated successfully.")
-            return data
-            
-        except Exception as e:
-            logging.error(f"❌ Script Generation Error: {e}")
-            return None
+        candidates = [
+            "gemini-1.5-flash",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash-exp",
+            "gemini-1.0-pro",
+            "gemini-pro"
+        ]
+
+        last_error = None
+        for model_name in candidates:
+            try:
+                logging.info(f"🔄 Trying script generation with model: {model_name}")
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+                data = json.loads(response.text)
+                
+                # Add metadata back
+                data['original_title'] = news_item['title']
+                data['source'] = news_item['source']
+                data['image_url'] = news_item['image']
+                
+                logging.info("✅ Script generated successfully.")
+                return data
+            except Exception as e:
+                logging.warning(f"⚠️ Model {model_name} failed: {e}")
+                last_error = e
+                continue
+
+        logging.error(f"❌ Script Generation Error (All models failed): {last_error}")
+        return None
 
 if __name__ == "__main__":
     # Test
