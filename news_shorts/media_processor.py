@@ -1,5 +1,7 @@
 import os
 import requests
+import json
+import base64
 import google.generativeai as genai
 from PIL import Image, ImageFilter
 from io import BytesIO
@@ -16,52 +18,63 @@ class MediaProcessor:
 
     def generate_ai_image(self, prompt, filename="ai_generated.jpg"):
         """
-        Generates an image using Gemini/Imagen model as fallback.
+        Generates an image using Gemini/Imagen model via REST API (Robuster than SDK).
         """
         print(f"🎨 Generating AI Image for: {prompt[:50]}...")
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            print("❌ GEMINI_API_KEY not found.")
+            return None
+
+        # Try Imagen 3.0 via REST
+        # Endpoint for v1beta
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
+        
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "instances": [
+                {
+                    "prompt": f"Professional news thumbnail, high quality, realistic: {prompt}",
+                    "aspectRatio": "3:4" # Supported by Imagen 3
+                }
+            ],
+            "parameters": {
+                "sampleCount": 1
+            }
+        }
+
         try:
-            # Try newer Imagen model first (from user logs)
-            model_name = "imagen-4.0-fast-generate-001" 
+            print(f"🔄 POST {url.split('?')[0]}...")
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
             
-            # The python SDK for Imagen is a bit distinct. 
-            # Trying the standard generate_images pattern.
-            # If that fails, we might need to fallback or catch.
-            
-            # Note: The availability depends on the specific API key tier.
-            # We will try a few likely model names.
-            
-            result = genai.ImageGenerationModel(model_name, "v1beta").generate_images(
-                prompt=prompt,
-                number_of_images=1,
-                aspect_ratio="3:4", # Vertical-ish if supported, else "1:1"
-                safety_filter_level="block_some",
-                person_generation="allow_adult"
-            )
-            
-            if result and result.images:
-                image = result.images[0]
-                path = os.path.join(self.assets_dir, filename)
-                image.save(path)
-                print(f"✅ AI Image saved at {path}")
-                return path
+            if response.status_code != 200:
+                print(f"⚠️ Image Gen Failed ({response.status_code}): {response.text}")
+                # Fallback to older model if 3.0 fails?
+                return None
                 
-        except Exception as e:
-            print(f"⚠️ Primary image gen failed: {e}")
-            try:
-                # Fallback to gemini-2.0-flash-exp-image-generation?
-                # Or just standard older Imagen if available?
-                # Let's try a simpler call for Imagen 3 if 4 fails
-                print("🔄 Retrying with 'imagen-3.0-generate-001'...")
-                model = genai.ImageGenerationModel("imagen-3.0-generate-001", "v1beta")
-                result = model.generate_images(prompt=prompt)
-                if result and result.images:
-                    image = result.images[0]
+            result = response.json()
+            # Parse 'predictions' -> 'bytesBase64Encoded'
+            # Structure usually: {"predictions": [{"bytesBase64Encoded": "..."}]}
+            
+            if "predictions" in result and result["predictions"]:
+                b64_data = result["predictions"][0].get("bytesBase64Encoded")
+                if not b64_data:
+                     # Check alternate structure (mimeType/bytesBase64Encoded)
+                     b64_data = result["predictions"][0].get("bytesBase64Encoded")
+                
+                if b64_data:
+                    img_data = base64.b64decode(b64_data)
+                    image = Image.open(BytesIO(img_data))
                     path = os.path.join(self.assets_dir, filename)
                     image.save(path)
                     print(f"✅ AI Image saved at {path}")
                     return path
-            except Exception as e2:
-                print(f"❌ AI Image generation failed completely: {e2}")
+            
+            print(f"❌ No image data in response: {result.keys()}")
+            return None
+
+        except Exception as e:
+            print(f"❌ AI Image generation exception: {e}")
         
         return None
 
