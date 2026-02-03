@@ -1,6 +1,8 @@
 import os
 import json
 import logging
+import time
+import random
 import google.generativeai as genai
 from dotenv import load_dotenv
 
@@ -81,6 +83,47 @@ class ContentProcessor:
             logging.warning(f"⚠️ Model discovery failed: {e}. Using fallback.")
             return genai.GenerativeModel("gemini-1.5-flash") # Fallback to default
 
+    def _generate_content_safe(self, prompt, mime_type="application/json"):
+        """
+        Robust wrapper for generate_content with handling for 429 (Rate Limit)
+        and automatic fallback to older models if newer ones are exhausted.
+        """
+        retries = 3
+        base_delay = 10 # seconds
+        
+        current_model = self.model
+        
+        for attempt in range(retries + 1):
+            try:
+                logging.info(f"🔄 Generating with {current_model.model_name} (Attempt {attempt+1}/{retries+1})...")
+                response = current_model.generate_content(
+                    prompt, 
+                    generation_config={"response_mime_type": mime_type}
+                )
+                return response
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "quota" in err_str.lower():
+                    wait_time = base_delay * (2 ** attempt) + random.uniform(1, 5)
+                    logging.warning(f"⏳ Rate Limit hit (429). Sleeping for {wait_time:.1f}s...")
+                    time.sleep(wait_time)
+                    
+                    # If we exhausted retries with this model, try downgrading
+                    if attempt == retries:
+                         logging.error(f"❌ Rate limit persistent on {current_model.model_name}.")
+                else:
+                    # Non-rate-limit error?
+                    logging.error(f"❌ API Error: {e}")
+                    # If it's a 404 or other fatal error, maybe switch model?
+                    if "404" in err_str:
+                         logging.info("♻️ Switching to fallback model due to 404...")
+                         current_model = genai.GenerativeModel("gemini-1.5-flash")
+                         continue
+                    break # Don't retry for random crashes unless we want to
+        
+        return None
+
+
 
     def curate_news(self, news_items):
         """
@@ -119,7 +162,10 @@ class ContentProcessor:
         
         try:
             logging.info(f"🔄 Trying curation with selected model...")
-            response = self.model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+            response = self._generate_content_safe(prompt, mime_type="application/json")
+            if not response:
+                raise Exception("Max retries exceeded or API failed.")
+            
             result = json.loads(response.text)
             idx = result.get("selected_index", 0)
             reason = result.get("reason", "")
@@ -169,7 +215,10 @@ class ContentProcessor:
         last_error = None
         try:
             logging.info(f"🔄 Trying script generation with selected model...")
-            response = self.model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
+            response = self._generate_content_safe(prompt, mime_type="application/json")
+            if not response:
+                 raise Exception("Max retries exceeded or API failed.")
+
             data = json.loads(response.text)
             
             # Add metadata back

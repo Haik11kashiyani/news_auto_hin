@@ -41,6 +41,12 @@ def run_pipeline():
     
     # Mark as processed so we don't pick it again
     rss.mark_processed(selected_news['link'])
+    
+    # Chill for a bit to avoid Rate Limits (429)
+    # Gemini Free Tier has mostly RPM limits
+    logging.info("⏳ Cooling down for 10s to respect API Rate Limits...")
+    import time
+    time.sleep(10)
 
     # 3. Generate Script
     script_data = content_ai.generate_script(selected_news)
