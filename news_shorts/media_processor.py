@@ -1,5 +1,6 @@
 import os
 import requests
+import google.generativeai as genai
 from PIL import Image, ImageFilter
 from io import BytesIO
 
@@ -7,6 +8,62 @@ class MediaProcessor:
     def __init__(self):
         self.assets_dir = "assets/temp"
         os.makedirs(self.assets_dir, exist_ok=True)
+        
+        # Configure GenAI
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+
+    def generate_ai_image(self, prompt, filename="ai_generated.jpg"):
+        """
+        Generates an image using Gemini/Imagen model as fallback.
+        """
+        print(f"🎨 Generating AI Image for: {prompt[:50]}...")
+        try:
+            # Try newer Imagen model first (from user logs)
+            model_name = "imagen-4.0-fast-generate-001" 
+            
+            # The python SDK for Imagen is a bit distinct. 
+            # Trying the standard generate_images pattern.
+            # If that fails, we might need to fallback or catch.
+            
+            # Note: The availability depends on the specific API key tier.
+            # We will try a few likely model names.
+            
+            result = genai.ImageGenerationModel(model_name, "v1beta").generate_images(
+                prompt=prompt,
+                number_of_images=1,
+                aspect_ratio="3:4", # Vertical-ish if supported, else "1:1"
+                safety_filter_level="block_some",
+                person_generation="allow_adult"
+            )
+            
+            if result and result.images:
+                image = result.images[0]
+                path = os.path.join(self.assets_dir, filename)
+                image.save(path)
+                print(f"✅ AI Image saved at {path}")
+                return path
+                
+        except Exception as e:
+            print(f"⚠️ Primary image gen failed: {e}")
+            try:
+                # Fallback to gemini-2.0-flash-exp-image-generation?
+                # Or just standard older Imagen if available?
+                # Let's try a simpler call for Imagen 3 if 4 fails
+                print("🔄 Retrying with 'imagen-3.0-generate-001'...")
+                model = genai.ImageGenerationModel("imagen-3.0-generate-001", "v1beta")
+                result = model.generate_images(prompt=prompt)
+                if result and result.images:
+                    image = result.images[0]
+                    path = os.path.join(self.assets_dir, filename)
+                    image.save(path)
+                    print(f"✅ AI Image saved at {path}")
+                    return path
+            except Exception as e2:
+                print(f"❌ AI Image generation failed completely: {e2}")
+        
+        return None
 
     def download_image(self, url, filename):
         if not url:

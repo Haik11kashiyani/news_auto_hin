@@ -1,5 +1,4 @@
-import schedule
-import time
+
 import os
 import logging
 from datetime import datetime
@@ -60,7 +59,13 @@ def run_pipeline():
         # For now, let's assume we need an image. If not, generate one?
         # TODO: Add image generation fallback if RSS has no image.
         logging.warning("⚠️ No image found in RSS. Automation might look bad.")
-        processed_img = None 
+        logging.info("🎨 Attempting AI Image Generation...")
+        ai_img_path = media_proc.generate_ai_image(selected_news['title'], "ai_generated.jpg")
+        if ai_img_path:
+            processed_img = media_proc.process_image_for_shorts(ai_img_path, final_img_path)
+        else:
+            processed_img = None 
+
 
     if not processed_img or not os.path.exists(processed_img):
         logging.error("❌ Image processing failed.")
@@ -89,17 +94,5 @@ def run_pipeline():
     else:
         logging.error("❌ Video Creation Failed.")
 
-def start_scheduler():
-    logging.info("⏰ Scheduler started. Running every 3 hours...")
-    
-    # Run once immediately for testing
-    run_pipeline()
-    
-    schedule.every(3).hours.do(run_pipeline)
-    
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
 if __name__ == "__main__":
-    start_scheduler()
+    run_pipeline()
