@@ -71,12 +71,45 @@ class MediaProcessor:
                     return path
             
             print(f"❌ No image data in response: {result.keys()}")
-            return None
+            return self._create_fallback_background(prompt, filename)
 
         except Exception as e:
             print(f"❌ AI Image generation exception: {e}")
+            return self._create_fallback_background(prompt, filename)
         
-        return None
+    def _create_fallback_background(self, text, filename):
+        """
+        Creates a professional news-style gradient background as a last resort.
+        """
+        print(f"🎨 Creating local fallback background for: {text[:50]}...")
+        try:
+            width, height = 1080, 1920
+            # Create a vertical gradient (Dark Blue to Darker Blue)
+            base = Image.new('RGB', (width, height), (10, 20, 40))
+            top_color = (15, 32, 67) # Dark Blue
+            bottom_color = (5, 10, 20) # Almost Black
+            
+            # Simple gradient draw
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(base)
+            
+            for y in range(height):
+                r = top_color[0] + (bottom_color[0] - top_color[0]) * y // height
+                g = top_color[1] + (bottom_color[1] - top_color[1]) * y // height
+                b = top_color[2] + (bottom_color[2] - top_color[2]) * y // height
+                draw.line([(0, y), (width, y)], fill=(r, g, b))
+            
+            # Add some abstract "news" elements (simple lines/shapes)
+            # Red accent at bottom
+            draw.rectangle([0, height-200, width, height], fill=(180, 0, 0)) # News Red
+            
+            path = os.path.join(self.assets_dir, filename)
+            base.save(path)
+            print(f"✅ Fallback background created at {path}")
+            return path
+        except Exception as e:
+            print(f"❌ Fallback background creation failed: {e}")
+            return None
 
     def download_image(self, url, filename):
         if not url:
