@@ -26,9 +26,9 @@ class MediaProcessor:
             print("❌ GEMINI_API_KEY not found.")
             return None
 
-        # Try Imagen 3.0 via REST
+        # Try Imagen 4.0 Fast via REST (Available in user logs)
         # Endpoint for v1beta
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key={api_key}"
         
         headers = {'Content-Type': 'application/json'}
         payload = {
