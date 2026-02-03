@@ -1,5 +1,6 @@
 
 import os
+import sys
 import logging
 from datetime import datetime
 from rss_fetcher import RSSFetcher
@@ -25,7 +26,7 @@ def run_pipeline():
     news_items = rss.fetch_all_news()
     if not news_items:
         logging.info("😴 No fresh news found.")
-        return
+        return # Success but no work done
 
     # 2. Curate Best Story
     # Batch first 30 items
@@ -34,7 +35,7 @@ def run_pipeline():
     
     if not selected_news:
         logging.error("❌ No news selected.")
-        return
+        sys.exit(1)
 
     logging.info(f"🎯 Selected Story: {selected_news['title']}")
     
@@ -45,7 +46,7 @@ def run_pipeline():
     script_data = content_ai.generate_script(selected_news)
     if not script_data:
         logging.error("❌ Script generation failed.")
-        return
+        sys.exit(1)
 
     # 4. Prepare Assets
     # Image
@@ -69,7 +70,7 @@ def run_pipeline():
 
     if not processed_img or not os.path.exists(processed_img):
         logging.error("❌ Image processing failed.")
-        return
+        sys.exit(1)
 
     # Audio
     audio_path = "assets/temp/speech.mp3"
@@ -93,6 +94,7 @@ def run_pipeline():
         # TODO: Upload Logic
     else:
         logging.error("❌ Video Creation Failed.")
+        sys.exit(1)
 
 if __name__ == "__main__":
     run_pipeline()

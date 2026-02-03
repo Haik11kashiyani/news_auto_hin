@@ -15,6 +15,8 @@ class VideoGenerator:
         self.width = 1080
         self.height = 1920
         self.template_path = os.path.abspath("news_shorts/templates/news_scene.html")
+        if not os.path.exists(self.template_path):
+            raise FileNotFoundError(f"❌ Template not found at: {self.template_path}")
         self.temp_dir = "assets/temp"
         os.makedirs(self.temp_dir, exist_ok=True)
 
@@ -60,7 +62,11 @@ class VideoGenerator:
             
             await browser.close()
         
+        if not frames:
+             logging.error("❌ No frames captured during render loop!")
+
         return frames
+
 
     def create_video(self, image_path, headline, audio_path, word_timings, output_path):
         """
