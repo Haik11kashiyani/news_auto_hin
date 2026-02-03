@@ -2,8 +2,9 @@ import os
 import requests
 import json
 import base64
+import random
 import google.generativeai as genai
-from PIL import Image, ImageFilter
+from PIL import Image, ImageFilter, ImageDraw, ImageFont
 from io import BytesIO
 
 class MediaProcessor:
@@ -49,7 +50,8 @@ class MediaProcessor:
             
             if response.status_code != 200:
                 print(f"⚠️ Image Gen Failed ({response.status_code}): {response.text}")
-                return self._create_fallback_background(prompt, filename)
+                # Fallback to older model if 3.0 fails?
+                return None
                 
             result = response.json()
             # Parse 'predictions' -> 'bytesBase64Encoded'
@@ -70,44 +72,58 @@ class MediaProcessor:
                     return path
             
             print(f"❌ No image data in response: {result.keys()}")
-            return self._create_fallback_background(prompt, filename)
+            return self._create_gradient_fallback(prompt, filename)
 
         except Exception as e:
             print(f"❌ AI Image generation exception: {e}")
-            return self._create_fallback_background(prompt, filename)
+            return self._create_gradient_fallback(prompt, filename)
         
-    def _create_fallback_background(self, text, filename):
+        return None
+
+    def _create_gradient_fallback(self, text, filename):
         """
-        Creates a professional news-style gradient background as a last resort.
+        Creates a local gradient image if AI generation fails.
         """
-        print(f"🎨 Creating local fallback background for: {text[:50]}...")
         try:
-            width, height = 1080, 1920
-            # Create a vertical gradient (Dark Blue to Darker Blue)
-            base = Image.new('RGB', (width, height), (10, 20, 40))
-            top_color = (15, 32, 67) # Dark Blue
-            bottom_color = (5, 10, 20) # Almost Black
+            print("🎨 Creating fallback gradient image...")
+            width, height = 1024, 1024
+            image = Image.new("RGB", (width, height), "#000000")
+            draw = ImageDraw.Draw(image)
             
-            # Simple gradient draw
-            from PIL import ImageDraw
-            draw = ImageDraw.Draw(base)
+            # Simple Vertical Gradient (Dark Red to Black or Blue to Black)
+            # Pick a random color scheme
+            colors = [
+                ((139, 0, 0), (0, 0, 0)), # Dark Red
+                ((0, 0, 139), (0, 0, 0)), # Dark Blue
+                ((50, 50, 50), (10, 10, 10)) # Dark Grey
+            ]
+            top_color, bottom_color = random.choice(colors)
             
             for y in range(height):
-                r = top_color[0] + (bottom_color[0] - top_color[0]) * y // height
-                g = top_color[1] + (bottom_color[1] - top_color[1]) * y // height
-                b = top_color[2] + (bottom_color[2] - top_color[2]) * y // height
+                r = int(top_color[0] + (bottom_color[0] - top_color[0]) * y / height)
+                g = int(top_color[1] + (bottom_color[1] - top_color[1]) * y / height)
+                b = int(top_color[2] + (bottom_color[2] - top_color[2]) * y / height)
                 draw.line([(0, y), (width, y)], fill=(r, g, b))
             
-            # Add some abstract "news" elements (simple lines/shapes)
-            # Red accent at bottom
-            draw.rectangle([0, height-200, width, height], fill=(180, 0, 0)) # News Red
+            # Add simple text overlay if possible
+            # Using default font since we can't guarantee system fonts
+            # For better results, one would bundle a .ttf file
+            
+            # Draw a center box
+            box_w, box_h = 800, 200
+            box_x, box_y = (width - box_w)//2, (height - box_h)//2
+            draw.rectangle([box_x, box_y, box_x+box_w, box_y+box_h], outline="white", width=5)
+            
+            # We can't easily center text with load_default() font as it's tiny
+            # So we rely on the video_generator's HTML overlay for the actual reading.
+            # This just provides a "Newsy" texture.
             
             path = os.path.join(self.assets_dir, filename)
-            base.save(path)
-            print(f"✅ Fallback background created at {path}")
+            image.save(path)
+            print(f"✅ Fallback Image saved at {path}")
             return path
         except Exception as e:
-            print(f"❌ Fallback background creation failed: {e}")
+            print(f"❌ Fallback generation failed: {e}")
             return None
 
     def download_image(self, url, filename):
