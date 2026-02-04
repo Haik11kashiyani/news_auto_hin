@@ -40,6 +40,7 @@ class ContentProcessor:
             
             # Priority Search
             priority_list = [
+                "models/gemini-2.5-flash",
                 "models/gemini-2.0-flash-exp",
                 "models/gemini-1.5-flash",
                 "models/gemini-1.5-flash-latest",
@@ -89,7 +90,7 @@ class ContentProcessor:
         and automatic fallback to older models if newer ones are exhausted.
         """
         retries = 3
-        base_delay = 10 # seconds
+        base_delay = 20 # seconds
         
         current_model = self.model
         
