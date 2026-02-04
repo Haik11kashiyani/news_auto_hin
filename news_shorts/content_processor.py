@@ -40,6 +40,7 @@ class ContentProcessor:
             
             # Priority Search
             priority_list = [
+                "models/gemini-flash-latest",
                 "models/gemini-2.5-flash",
                 "models/gemini-2.0-flash-exp",
                 "models/gemini-1.5-flash",
@@ -111,8 +112,8 @@ class ContentProcessor:
                     
                     # If we exhausted retries with this model, or if we are already seeing persistent fails
                     if attempt >= 1:
-                         logging.info("♻️ Switching to fallback model 'gemini-2.0-flash' to bypass rate limit.")
-                         current_model = genai.GenerativeModel("gemini-2.0-flash")
+                         logging.info("♻️ Switching to fallback model 'gemini-flash-latest' to bypass rate limit.")
+                         current_model = genai.GenerativeModel("gemini-flash-latest")
 
                     if attempt == retries:
                          logging.error(f"❌ Rate limit persistent on {current_model.model_name}.")
