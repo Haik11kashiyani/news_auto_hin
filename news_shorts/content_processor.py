@@ -111,8 +111,8 @@ class ContentProcessor:
                     
                     # If we exhausted retries with this model, or if we are already seeing persistent fails
                     if attempt >= 1:
-                         logging.info("♻️ Switching to fallback model 'gemini-1.5-flash' to bypass rate limit.")
-                         current_model = genai.GenerativeModel("gemini-1.5-flash")
+                         logging.info("♻️ Switching to fallback model 'gemini-2.0-flash' to bypass rate limit.")
+                         current_model = genai.GenerativeModel("gemini-2.0-flash")
 
                     if attempt == retries:
                          logging.error(f"❌ Rate limit persistent on {current_model.model_name}.")
