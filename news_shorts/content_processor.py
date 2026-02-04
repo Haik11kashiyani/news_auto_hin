@@ -109,7 +109,11 @@ class ContentProcessor:
                     logging.warning(f"⏳ Rate Limit hit (429). Sleeping for {wait_time:.1f}s...")
                     time.sleep(wait_time)
                     
-                    # If we exhausted retries with this model, try downgrading
+                    # If we exhausted retries with this model, or if we are already seeing persistent fails
+                    if attempt >= 1:
+                         logging.info("♻️ Switching to fallback model 'gemini-1.5-flash' to bypass rate limit.")
+                         current_model = genai.GenerativeModel("gemini-1.5-flash")
+
                     if attempt == retries:
                          logging.error(f"❌ Rate limit persistent on {current_model.model_name}.")
                 else:
